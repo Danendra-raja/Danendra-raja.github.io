@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Trash Classification</title>
+  <style>
+    video, canvas { display: block; margin: 10px auto; }
+    #result { text-align: center; font-size: 20px; margin-top: 15px; }
+    button { margin: 5px; padding: 10px 20px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h2 style="text-align:center;">Real-time Trash Detection</h2>
+  <div style="text-align:center;">
+    <video id="webcam" autoplay playsinline width="400" height="300"></video><br>
+    <canvas id="canvas" width="224" height="224" style="display:none;"></canvas><br>
+
+    <button onclick="startWebcam()">Start Webcam</button>
+    <button onclick="stopWebcam()">Turn Off Webcam</button>
+    <button onclick="startPrediction()">Start Prediction</button>
+    <button onclick="stopPrediction()">Stop Prediction</button><br><br>
+
+    <input type="file" id="imageUpload" accept="image/*">
+    <button onclick="predictUpload()">Predict Upload</button>
+  </div>
+
+  <div id="result">Hasil prediksi: -</div>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let stream;
+    let interval;
+
+    async function startWebcam() {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+    }
+
+    function stopWebcam() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+    }
+
+    function startPrediction() {
+      interval = setInterval(() => {
+        ctx.drawImage(video, 0, 0, 224, 224);
+        canvas.toBlob(blob => {
+          const formData = new FormData();
+          formData.append('image', blob, 'frame.jpg');
+
+          fetch('/predict_webcam', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            document.getElementById('result').innerText = 'Hasil prediksi: ' + data.result;
+          });
+        }, 'image/jpeg');
+      }, 1000);
+    }
+
+    function stopPrediction() {
+      clearInterval(interval);
+    }
+
+    function predictUpload() {
+      const input = document.getElementById('imageUpload');
+      const formData = new FormData();
+      formData.append('image', input.files[0]);
+
+      fetch('/predict_upload', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('result').innerText = 'Hasil prediksi: ' + data.result;
+      });
+    }
+  </script>
+</body>
+</html>
